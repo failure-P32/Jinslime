@@ -10,10 +10,10 @@ NotePad::NotePad(QWidget *parent)
     fontSizeSpinBox = new QSpinBox(this);
     fontSizeSpinBox->setValue(16);
     resize(QSize(1280, 720));
-	setCurrentFile(QString());
-	connect(text, SIGNAL(textChanged()), this, SLOT(textModified()));
-    connect(fontComboBox, SIGNAL(currentFontChanged(const QFont &)), text, SLOT(setCurrentFont(QFont)));
-    connect(fontSizeSpinBox, SIGNAL(valueChanged(int)), text, SLOT(setCurrentFontSize(int)));
+    setCurrentFile(QString()); //Empty file
+    connect(text, SIGNAL(textChanged()), this, SLOT(textModified())); //Modifidied
+    connect(fontComboBox, SIGNAL(currentFontChanged(const QFont &)), text, SLOT(setCurrentFont(QFont))); //Set font
+    connect(fontSizeSpinBox, SIGNAL(valueChanged(int)), text, SLOT(setCurrentFontSize(int))); //Change font size
 	createActions();
 	createMenus();
 	createToolBars();
@@ -38,7 +38,15 @@ void NotePad::createActions()
 	saveasAction = new QAction(tr("&Save as"), this);
 	saveasAction->setShortcut(QKeySequence::SaveAs);
 
+    for(int i = 0; i < RecentFileNum; ++i)
+    {
+        recentFileActions[i] = new QAction(this);
+        connect(recentFileActions[i], SIGNAL(triggered(bool)), this, SLOT(openRecentFile()));
+    }
+
     undoAction = new QAction(tr("&Undo"), this);
+    undoAction->setShortcut(QKeySequence::Undo);
+    undoAction->setIcon(QIcon("icons/undo.png"));
 
 	copyAction = new QAction(tr("&Copy"), this);
 	copyAction->setShortcut(QKeySequence::Copy);
@@ -71,6 +79,8 @@ void NotePad::createActions()
     fontColorAction->setToolTip(tr("Set font color."));
 
     //fontAction = new QAction(tr("&Replace"), this);
+    runAction = new QAction(tr("Compile and run"), this);
+    runAction->setIcon(QIcon("icons/run.png"));
 
 	connect(newAction, SIGNAL(triggered()), this, SLOT(newFile()));
 	connect(openAction, SIGNAL(triggered()), this, SLOT(openFile()));
@@ -85,11 +95,19 @@ void NotePad::createActions()
     connect(replaceAction, SIGNAL(triggered(bool)), this, SLOT(showReplaceDialog()));
     connect(fontAction, SIGNAL(triggered(bool)), this, SLOT(showFontDialog()));
     connect(fontColorAction, SIGNAL(triggered(bool)), this, SLOT(showColorDialog()));
+
+    connect(runAction, SIGNAL(triggered(bool)), this, SLOT(compileAndRun()));
 }
 void NotePad::createMenus()
 {
 	fileMenu = menuBar()->addMenu(tr("&File"));
 	fileMenu->addActions({ newAction,openAction,saveAction,saveasAction });
+    fileMenu->addSeparator();
+    for(int i = 0; i < RecentFileNum; ++i)
+    {
+        fileMenu->addAction(recentFileActions[i]);
+        recentFileActions[i]->setVisible(false);
+    }
 	editMenu = menuBar()->addMenu(tr("&Edit"));
     editMenu->addActions({ undoAction,copyAction,pasteAction,cutAction });
 	editMenu->addSeparator();
@@ -107,9 +125,11 @@ void NotePad::createToolBars()
     fontToolBar->addSeparator();
     fontToolBar->addWidget(fontComboBox);
     fontToolBar->addWidget(fontSizeSpinBox);
-
+    fontToolBar->addSeparator();
+    fontToolBar->addAction(runAction);
 }
 bool NotePad::okToContinue()
+//Ask if user close without saving
 {
 	if (isWindowModified())
 	{
@@ -126,14 +146,15 @@ bool NotePad::okToContinue()
 void NotePad::setCurrentFile(const QString &fileName)
 {
 	curFile = fileName;
-	QString shownFile = curFile.isEmpty() ? "Untitled" : curFile;
+    QString shownFile = curFile.isEmpty() ? "Untitled" : QFileInfo(fileName).fileName();
+    //Use QFileInfo::fileName to cut the path of the file name when showing.
 	setWindowModified(false);
 	setWindowTitle(tr("%1[*] - %2").arg(shownFile).arg(tr("NotePad")));
 }
 //Events
 void NotePad::closeEvent(QCloseEvent *event)
 {
-	if (okToContinue())
+    if (okToContinue()) //Ask if save
 		event->accept();
 	else
 		event->ignore();
@@ -141,10 +162,10 @@ void NotePad::closeEvent(QCloseEvent *event)
 //Slots
 bool NotePad::newFile()
 {
-	if (okToContinue())
+    if (okToContinue()) //Ask if save
 	{
 		text->clear();
-		setCurrentFile(QString());
+        setCurrentFile(QString()); //Empty file
 		return true;
 	}
 	else
@@ -152,14 +173,26 @@ bool NotePad::newFile()
 }
 bool NotePad::openFile()
 {
-	if (okToContinue())
+    if (okToContinue()) //Ask if save
 	{
-		QString fileName = QFileDialog::getOpenFileName(this, tr("Open text"), ".", tr("Text files (*.txt)"));
+        QString fileName = QFileDialog::getOpenFileName(this, tr("Open text"), ".",
+                                        tr("Text files (*.txt);;C/C++ source files (*.c *.cpp);;All files (*.*)"));
 		if (!fileName.isEmpty())
 			return open(fileName);
 		return false;
 	}
 	return false;
+}
+bool NotePad::openRecentFile()
+{
+    if(okToContinue())
+    {
+        QString fileName = qobject_cast<QAction*>(sender())->data().toString();
+        if (!fileName.isEmpty())
+            return open(fileName);
+        return false;
+    }
+    return false;
 }
 bool NotePad::saveFile()
 {
@@ -169,7 +202,8 @@ bool NotePad::saveFile()
 }
 bool NotePad::saveAs()
 {
-	QString fileName = QFileDialog::getSaveFileName(this, tr("Save text"), ".", tr("Text files (*.txt)"));
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save text"), ".",
+                                    tr("Text files (*.txt);;C/C++ source files (*.c *.cpp);;All files (*.*)"));
 	if (!fileName.isEmpty())
 		return save(fileName);
 	return false;
@@ -193,6 +227,7 @@ bool NotePad::open(const QString &fileName)
 	text->setPlainText(content);
 	setCurrentFile(fileName);
 	QApplication::restoreOverrideCursor();
+    updateRecentFiles(fileName);
 	return true;
 }
 bool NotePad::save(const QString &fileName)
@@ -213,9 +248,35 @@ bool NotePad::save(const QString &fileName)
 			out << *itr;
 	setCurrentFile(fileName);
 	QApplication::restoreOverrideCursor();
+    updateRecentFiles(fileName);
 	//out << endl;
 	return true;
 }
+void NotePad::updateRecentFiles(const QString &fileName)
+{
+    //for(int i = 0; i < recentFiles.size(); ++i)
+    for(auto itr = recentFiles.begin(); itr < recentFiles.end();) //Update recent file list
+    {
+        if(QFile::exists(*itr))
+            ++itr;
+        else
+            itr = recentFiles.erase(itr);
+    }
+    recentFiles.removeAll(fileName);
+    recentFiles.prepend(fileName);
+    for(int i = 0; i < RecentFileNum; ++i)
+    {
+        if(i < recentFiles.size())
+        {
+            recentFileActions[i]->setText(QFileInfo(recentFiles[i]).fileName());
+            recentFileActions[i]->setData(recentFiles[i]);
+            recentFileActions[i]->setVisible(true);
+        }
+        else
+            recentFileActions[i]->setVisible(false);
+    }
+}
+
 void NotePad::showFindDialog()
 {
 	if (!findDialog)
@@ -299,23 +360,35 @@ void NotePad::replaceAll(const QString &find, const QString &replace, Qt::CaseSe
 }
 void NotePad::showFontDialog()
 {
-    QFontDialog *fontDialog = new QFontDialog(this);
-    qDebug() << "New font dialog";
-    fontDialog->setCurrentFont(text->currentFont());
-
-    if (QDialog::Accepted == fontDialog->exec())
-        text->setCurrentFont(fontDialog->currentFont());
-
-    delete fontDialog;
+    text->setCurrentFont(QFontDialog::getFont(nullptr, text->currentFont(), this, tr("Set Font")));
 }
 void NotePad::showColorDialog()
 {
-    QColorDialog *colorDialog = new QColorDialog(this);
-    qDebug() << "New color dialog";
-    colorDialog->setCurrentColor(text->textColor());
-
-    if(QDialog::Accepted == colorDialog->exec())
-        text->setTextColor(colorDialog->currentColor());
-
-    delete colorDialog;
+    text->setTextColor(QColorDialog::getColor(text->textColor(), this, tr("Set Font Color")));
+}
+bool NotePad::compileAndRun()
+{
+    QFileInfo fileInfo(curFile);
+    QString compiler = "gcc ";
+    if(fileInfo.suffix() != "c" && fileInfo.suffix() != "cpp")
+    {
+        QMessageBox::warning(this, tr("Warning"), tr("Only C or C++ source file is supported to be compiled and run!"), QMessageBox::Ok);
+        return false;
+    }
+    if(fileInfo.suffix() == "cpp")
+        compiler = "g++ ";
+    if(okToContinue())
+    {
+        QString cmd = "cd /d " + fileInfo.path() + " && " +
+                compiler + fileInfo.fileName() + " -o " + fileInfo.baseName() + " && " +
+                fileInfo.baseName();
+        qDebug() << cmd;
+        if(system(cmd.toLatin1().data()))
+        {
+            QMessageBox::warning(this, tr("Error"), tr("Error while compiling or running!"), QMessageBox::Ok);
+            return false;
+        }
+        return true;
+    }
+    return false;
 }

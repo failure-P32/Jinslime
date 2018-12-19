@@ -11,14 +11,18 @@ public:
 	NotePad(QWidget *parent = Q_NULLPTR);
 
 private:
+
     TextEdit *text;
 	QString content;
 	QString curFile;
+    enum { RecentFileNum = 5 };
+    QStringList recentFiles;
 
 	QAction *newAction;
 	QAction *openAction;
 	QAction *saveAction;
 	QAction *saveasAction;
+    QAction *recentFileActions[RecentFileNum];
 
     QAction *undoAction;
 	QAction *copyAction;
@@ -28,6 +32,8 @@ private:
 	QAction *replaceAction;
     QAction *fontAction;
     QAction *fontColorAction;
+
+    QAction *runAction;
 
 	QMenu *fileMenu;
 	QMenu *editMenu;
@@ -45,6 +51,7 @@ private:
 	void createActions();
 	void createMenus();
 	void createToolBars();
+    void updateRecentFiles(const QString &);
 	bool okToContinue();
 	void setCurrentFile(const QString &);
 	bool open(const QString &);
@@ -53,6 +60,7 @@ private:
 private slots:
 	bool newFile();
 	bool openFile();
+    bool openRecentFile();
 	bool saveFile();
 	bool saveAs();
 	void textModified();
@@ -64,6 +72,7 @@ private slots:
 	void replaceAll(const QString &, const QString &, Qt::CaseSensitivity);
     void showFontDialog();
     void showColorDialog();
+    bool compileAndRun();
 
 protected:
 	void closeEvent(QCloseEvent *event) override;

@@ -131,3 +131,20 @@ void ReplaceDialog::enableReplaceButtons()
 	replaceNextButton->setEnabled(!replaceEdit->text().isEmpty());
 	replaceAllButton->setEnabled(!replaceEdit->text().isEmpty());
 }
+
+BrowserDialog::BrowserDialog(QWidget *parent)
+    :QDialog(parent), browser(new QTextBrowser(this))
+{
+    QHBoxLayout *layout = new QHBoxLayout;
+    layout->addWidget(browser);
+    setLayout(layout);
+}
+void BrowserDialog::setText(const QString &text)
+{
+    browser->setHtml(text);
+}
+void BrowserDialog::setCurrentFont(const QFont &font)
+{
+    browser->setCurrentFont(font);
+    qDebug() << font;
+}

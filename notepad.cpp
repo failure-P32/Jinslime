@@ -1,7 +1,8 @@
 #include "notepad.h"
 
+#include <QDebug>
 NotePad::NotePad(QWidget *parent)
-    : QMainWindow(parent), content(), findDialog(nullptr), replaceDialog(nullptr)
+    : QMainWindow(parent), fileType(TextFile), findDialog(nullptr), replaceDialog(nullptr), browserDialog(new BrowserDialog(this))
 {
     text = new TextEdit(this);
     text->setFont(QFont("微软雅黑", 16));
@@ -12,28 +13,50 @@ NotePad::NotePad(QWidget *parent)
     resize(QSize(1280, 720));
     setCurrentFile(QString()); //Empty file
     connect(text, SIGNAL(textChanged()), this, SLOT(textModified())); //Modifidied
-    connect(fontComboBox, SIGNAL(currentFontChanged(const QFont &)), text, SLOT(setCurrentFont(QFont))); //Set font
+    connect(text, SIGNAL(textChanged()), this, SLOT(textCount())); //字数统计
+    connect(fontComboBox, SIGNAL(currentFontChanged(QFont)), text, SLOT(setCurrentFont(QFont)));
+    connect(fontComboBox, SIGNAL(currentFontChanged(QFont)), browserDialog, SLOT(setCurrentFont(QFont)));//Set font
     connect(fontSizeSpinBox, SIGNAL(valueChanged(int)), text, SLOT(setCurrentFontSize(int))); //Change font size
 	createActions();
 	createMenus();
 	createToolBars();
+    highlighter = new Highlighter(text->document());
+    // 创建状态栏
+    createStatusBar();
+    setWindowModified(false);
 }
+
+void NotePad::textCount()
+{
+
+    // countLabel->setText(QString::number( text->toPlainText().toUtf8().size()));
+    countLabel->setText("当前字数:"+QString::number(text->toPlainText().length()));
+   // qDebug()<<content.toUtf8().size();
+}
+
+void NotePad::createStatusBar()
+{
+    statusBar();
+    countLabel = new QLabel(this->statusBar());
+    statusBar()->addPermanentWidget(countLabel);
+}
+
 void NotePad::createActions()
 {
 	newAction = new QAction(tr("&New"), this);
 	newAction->setShortcut(QKeySequence::New);
-    newAction->setIcon(QIcon("icons/file.png"));
-	newAction->setToolTip(tr("Create a new text file."));
+    newAction->setIcon(QIcon(":/icons/file.png"));
+    newAction->setToolTip(tr("Create a new text file"));
 
 	openAction = new QAction(tr("&Open"), this);
 	openAction->setShortcut(QKeySequence::Open);
-    openAction->setIcon(QIcon("icons/folder-open.png"));
-	openAction->setToolTip(tr("Open a text file."));
+    openAction->setIcon(QIcon(":/icons/folder-open.png"));
+    openAction->setToolTip(tr("Open a text file"));
 
 	saveAction = new QAction(tr("&Save"), this);
 	saveAction->setShortcut(QKeySequence::Save);
-    saveAction->setIcon(QIcon("icons/save.png"));
-	saveAction->setToolTip(tr("Save the current text file."));
+    saveAction->setIcon(QIcon(":/icons/save.png"));
+    saveAction->setToolTip(tr("Save the current text file"));
 
 	saveasAction = new QAction(tr("&Save as"), this);
 	saveasAction->setShortcut(QKeySequence::SaveAs);
@@ -46,46 +69,49 @@ void NotePad::createActions()
 
     undoAction = new QAction(tr("&Undo"), this);
     undoAction->setShortcut(QKeySequence::Undo);
-    undoAction->setIcon(QIcon("icons/undo.png"));
+    undoAction->setIcon(QIcon(":/icons/undo.png"));
 
 	copyAction = new QAction(tr("&Copy"), this);
 	copyAction->setShortcut(QKeySequence::Copy);
-    copyAction->setIcon(QIcon("icons/copy.png"));
-    copyAction->setToolTip(tr("Copy the selected text."));
+    copyAction->setIcon(QIcon(":/icons/copy.png"));
+    copyAction->setToolTip(tr("Copy the selected text"));
 
 	pasteAction = new QAction(tr("&Paste"), this);
 	pasteAction->setShortcut(QKeySequence::Paste);
-    pasteAction->setIcon(QIcon("icons/paste.png"));
-    pasteAction->setToolTip(tr("Paste the copied text."));
+    pasteAction->setIcon(QIcon(":/icons/paste.png"));
+    pasteAction->setToolTip(tr("Paste the copied text"));
 
 	cutAction = new QAction(tr("&Cut"), this);
 	cutAction->setShortcut(QKeySequence::Cut);
-    cutAction->setIcon(QIcon("icons/cut.png"));
-    cutAction->setToolTip(tr("Cut the selected text."));
+    cutAction->setIcon(QIcon(":/icons/cut.png"));
+    cutAction->setToolTip(tr("Cut the selected text"));
 
 	findAction = new QAction(tr("&Find"), this);
 	findAction->setShortcut(QKeySequence::Find);
-    findAction->setIcon(QIcon("icons/search.png"));
+    findAction->setIcon(QIcon(":/icons/search.png"));
 
 	replaceAction = new QAction(tr("&Replace"), this);
 	replaceAction->setShortcut(QKeySequence::Replace);
-    replaceAction->setIcon(QIcon("icons/binoculars.png"));
+    replaceAction->setIcon(QIcon(":/icons/binoculars.png"));
 
     fontAction = new QAction(tr("F&ont"), this);
-    fontAction->setIcon(QIcon("icons/font.png"));
+    fontAction->setIcon(QIcon(":/icons/font.png"));
 
     fontColorAction = new QAction(tr("Color"), this);
-    fontColorAction->setIcon(QIcon("icons/dashboard.png"));
-    fontColorAction->setToolTip(tr("Set font color."));
+    fontColorAction->setIcon(QIcon(":/icons/dashboard.png"));
+    fontColorAction->setToolTip(tr("Set font color"));
 
     //fontAction = new QAction(tr("&Replace"), this);
     runAction = new QAction(tr("Compile and run"), this);
-    runAction->setIcon(QIcon("icons/run.png"));
+    runAction->setIcon(QIcon(":/icons/run.png"));
 
-	connect(newAction, SIGNAL(triggered()), this, SLOT(newFile()));
-	connect(openAction, SIGNAL(triggered()), this, SLOT(openFile()));
-	connect(saveAction, SIGNAL(triggered()), this, SLOT(saveFile()));
-	connect(saveasAction, SIGNAL(triggered()), this, SLOT(saveAs()));
+    viewHtmlAction = new QAction(tr("View HTML"), this);
+    viewMarkdownAction = new QAction(tr("View Markdown"), this);
+
+    connect(newAction, SIGNAL(triggered(bool)), this, SLOT(newFile()));
+    connect(openAction, SIGNAL(triggered(bool)), this, SLOT(openFile()));
+    connect(saveAction, SIGNAL(triggered(bool)), this, SLOT(saveFile()));
+    connect(saveasAction, SIGNAL(triggered(bool)), this, SLOT(saveAs()));
 
     connect(undoAction, SIGNAL(triggered(bool)), text, SLOT(undo()));
     connect(copyAction, SIGNAL(triggered(bool)), text, SLOT(copy()));
@@ -97,6 +123,23 @@ void NotePad::createActions()
     connect(fontColorAction, SIGNAL(triggered(bool)), this, SLOT(showColorDialog()));
 
     connect(runAction, SIGNAL(triggered(bool)), this, SLOT(compileAndRun()));
+    connect(viewHtmlAction, SIGNAL(triggered(bool)), this, SLOT(viewHtml()));
+    //connect(viewMarkdownAction, SIGNAL(triggered(bool)), this, SLOT(viewMarkdown()));
+
+    codecActions = new QActionGroup(this);
+    QAction *codecAction = new QAction("UTF-8", this);
+    codecAction->setCheckable(true);
+    codecAction->setChecked(true);
+    codecActions->addAction(codecAction);
+    connect(codecAction, SIGNAL(triggered(bool)), this, SLOT(on_codecAction_triggered()));
+    codecAction = new QAction("GB2312", this);
+    codecAction->setCheckable(true);
+    codecActions->addAction(codecAction);
+    connect(codecAction, SIGNAL(triggered(bool)), this, SLOT(on_codecAction_triggered()));
+    codecAction = new QAction("GBK", this);
+    codecAction->setCheckable(true);
+    codecActions->addAction(codecAction);
+    connect(codecAction, SIGNAL(triggered(bool)), this, SLOT(on_codecAction_triggered()));
 }
 void NotePad::createMenus()
 {
@@ -112,6 +155,13 @@ void NotePad::createMenus()
     editMenu->addActions({ undoAction,copyAction,pasteAction,cutAction });
 	editMenu->addSeparator();
 	editMenu->addActions({ findAction,replaceAction });
+    utilityMenu = menuBar()->addMenu(tr("&Utilities"));
+    QMenu *cOrCppMenu = utilityMenu->addMenu(tr("C/C++"));
+    cOrCppMenu->addAction(runAction);
+    QMenu *htmlMenu = utilityMenu->addMenu(tr("HTML"));
+    htmlMenu->addAction(viewHtmlAction);
+    QMenu *codecMenu = utilityMenu->addMenu(tr("Set codec"));
+    codecMenu->addActions(codecActions->actions());
 }
 void NotePad::createToolBars()
 {
@@ -145,9 +195,34 @@ bool NotePad::okToContinue()
 }
 void NotePad::setCurrentFile(const QString &fileName)
 {
+    QFileInfo info(fileName);
 	curFile = fileName;
-    QString shownFile = curFile.isEmpty() ? "Untitled" : QFileInfo(fileName).fileName();
+    QString shownFile = curFile.isEmpty() ? "Untitled" : info.fileName();
     //Use QFileInfo::fileName to cut the path of the file name when showing.
+    QString suffix = info.suffix(); //Get suffix to decide the file type
+    if(suffix == "c")
+        fileType = CFile;
+    else if(suffix == "cpp")
+        fileType = CppFile;
+    else if(suffix == "h" || suffix == "hpp")
+        fileType = CHeaderFile;
+    else if(suffix == "html")
+        fileType = HTMLFile;
+    else if(suffix == "md")
+        fileType = MarkdownFile;
+    else
+        fileType = TextFile;
+    switch(fileType)
+    {
+    case CFile:
+    case CppFile:
+    case CHeaderFile:
+        text->setCompleterEnabled(true);
+        break;
+    default:
+        text->setCompleterEnabled(false);
+        break;
+    }
 	setWindowModified(false);
 	setWindowTitle(tr("%1[*] - %2").arg(shownFile).arg(tr("NotePad")));
 }
@@ -176,7 +251,7 @@ bool NotePad::openFile()
     if (okToContinue()) //Ask if save
 	{
         QString fileName = QFileDialog::getOpenFileName(this, tr("Open text"), ".",
-                                        tr("Text files (*.txt);;C/C++ source files (*.c *.cpp);;All files (*.*)"));
+                                        tr("Text files (*.txt);;C/C++ source files (*.c *.cpp);;HTML files (*.html);;All files (*.*)"));
 		if (!fileName.isEmpty())
 			return open(fileName);
 		return false;
@@ -203,7 +278,7 @@ bool NotePad::saveFile()
 bool NotePad::saveAs()
 {
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save text"), ".",
-                                    tr("Text files (*.txt);;C/C++ source files (*.c *.cpp);;All files (*.*)"));
+                                    tr("Text files (*.txt);;C/C++ source files (*.c *.cpp);;HTML files (*.html);;All files (*.*)"));
 	if (!fileName.isEmpty())
 		return save(fileName);
 	return false;
@@ -293,7 +368,7 @@ void NotePad::showFindDialog()
 void NotePad::findPrevious(const QString &str, Qt::CaseSensitivity cs)
 {
     qDebug() << cs;
-	QFlags<QTextDocument::FindFlag> flag = (cs == Qt::CaseInsensitive) ? QTextDocument::FindBackward : (QTextDocument::FindBackward | QTextDocument::FindCaseSensitively);
+    QFlags<QTextDocument::FindFlag> flag = (cs == Qt::CaseInsensitive) ? QTextDocument::FindBackward : (QTextDocument::FindBackward | QTextDocument::FindCaseSensitively);
     qDebug() << flag;
     bool findSucc = text->find(str, flag);
     //text->setTextCursor(text->document()->find(str, text->textCursor(), flag));
@@ -302,7 +377,7 @@ void NotePad::findPrevious(const QString &str, Qt::CaseSensitivity cs)
 }
 void NotePad::findNext(const QString &str, Qt::CaseSensitivity cs)
 {
-    QFlags<QTextDocument::FindFlag> flag = (cs == Qt::CaseInsensitive) ? 0 : QTextDocument::FindCaseSensitively;
+    QFlags<QTextDocument::FindFlag> flag = static_cast<QTextDocument::FindFlag>((cs == Qt::CaseInsensitive) ? 0 : QTextDocument::FindCaseSensitively);
 	bool findSucc = text->find(str, flag);
 	if (!findSucc)
 		QMessageBox::information(this, tr("NotePad"), tr("Can't find \"%1\".").arg(str), QMessageBox::StandardButton::Ok);
@@ -325,7 +400,7 @@ void NotePad::showReplaceDialog()
 }
 bool NotePad::replaceNext(const QString &find, const QString &replace, Qt::CaseSensitivity cs, bool showMsg)
 {
-	QFlags<QTextDocument::FindFlag> flag = (cs == Qt::CaseInsensitive) ? 0 : QTextDocument::FindCaseSensitively;
+    QFlags<QTextDocument::FindFlag> flag = static_cast<QTextDocument::FindFlag>((cs == Qt::CaseInsensitive) ? 0 : QTextDocument::FindCaseSensitively);
     qDebug() << "Replace Next";
 	bool findSucc = text->find(find, flag);
 	if (!findSucc)
@@ -344,7 +419,7 @@ bool NotePad::replaceNext(const QString &find, const QString &replace, Qt::CaseS
 }
 void NotePad::replaceAll(const QString &find, const QString &replace, Qt::CaseSensitivity cs)
 {
-	QFlags<QTextDocument::FindFlag> flag = (cs == Qt::CaseInsensitive) ? 0 : QTextDocument::FindCaseSensitively;
+    QFlags<QTextDocument::FindFlag> flag = static_cast<QTextDocument::FindFlag>((cs == Qt::CaseInsensitive) ? 0 : QTextDocument::FindCaseSensitively);
 	text->moveCursor(QTextCursor::Start);
 	bool findSucc = text->find(find, flag);
 	if (!findSucc)
@@ -361,6 +436,7 @@ void NotePad::replaceAll(const QString &find, const QString &replace, Qt::CaseSe
 void NotePad::showFontDialog()
 {
     text->setCurrentFont(QFontDialog::getFont(nullptr, text->currentFont(), this, tr("Set Font")));
+    browserDialog->setCurrentFont(text->currentFont());
 }
 void NotePad::showColorDialog()
 {
@@ -370,12 +446,12 @@ bool NotePad::compileAndRun()
 {
     QFileInfo fileInfo(curFile);
     QString compiler = "gcc ";
-    if(fileInfo.suffix() != "c" && fileInfo.suffix() != "cpp")
+    if(fileType != CFile && fileType != CppFile)
     {
         QMessageBox::warning(this, tr("Warning"), tr("Only C or C++ source file is supported to be compiled and run!"), QMessageBox::Ok);
         return false;
     }
-    if(fileInfo.suffix() == "cpp")
+    if(fileType == CppFile)
         compiler = "g++ ";
     if(okToContinue())
     {
@@ -391,4 +467,33 @@ bool NotePad::compileAndRun()
         return true;
     }
     return false;
+}
+void NotePad::viewHtml()
+{
+    if(fileType != HTMLFile)
+    {
+        QMessageBox::warning(this, tr("Warning"), tr("This file isn't an HTML file."), QMessageBox::Ok);
+        return;
+    }
+    QString htmlText = text->toPlainText();
+    showBrowser(htmlText);
+}
+void NotePad::showBrowser(const QString &htmlText)
+{
+    browserDialog->setText(htmlText);
+    browserDialog->setCurrentFont(text->currentFont());
+    browserDialog->show();
+    browserDialog->resize(QSize(1280, 720));
+    qDebug() << "View HTML";
+}
+//void NotePad::setCodec(const QString &codec)
+//{
+//    QTextCodec::setCodecForLocale(QTextCodec::codecForName(codec.toLatin1()));
+//}
+void NotePad::on_codecAction_triggered()
+{
+    QAction *codecAction = qobject_cast<QAction *>(sender());
+    qDebug() << "Set codec: " << codecAction->text();
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName(codecAction->text().toLatin1()));
+    open(curFile);
 }

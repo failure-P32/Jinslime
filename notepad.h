@@ -1,8 +1,7 @@
 #pragma once
-#include <memory>
 #include "textedit.h"
 #include "dialogs.h"
-
+#include "highlighter.h"
 class NotePad : public QMainWindow
 {
 	Q_OBJECT
@@ -10,12 +9,18 @@ class NotePad : public QMainWindow
 public:
 	NotePad(QWidget *parent = Q_NULLPTR);
 
+    enum FileType
+    {
+        TextFile, CFile, CppFile, CHeaderFile, HTMLFile, MarkdownFile
+    };
+
 private:
 
     TextEdit *text;
-	QString content;
+    //QTextBrowser *browser;
 	QString curFile;
     enum { RecentFileNum = 5 };
+    FileType fileType;
     QStringList recentFiles;
 
 	QAction *newAction;
@@ -34,28 +39,40 @@ private:
     QAction *fontColorAction;
 
     QAction *runAction;
+    QAction *viewHtmlAction;
+    QAction *viewMarkdownAction;
+
+    QActionGroup *codecActions;
 
 	QMenu *fileMenu;
 	QMenu *editMenu;
+    QMenu *utilityMenu;
 
 	QToolBar *fileToolBar;
 	QToolBar *editToolBar;
     QToolBar *fontToolBar;
+
+    QLabel *countLabel;
 
     QFontComboBox *fontComboBox;
     QSpinBox *fontSizeSpinBox;
 
 	FindDialog *findDialog;
 	ReplaceDialog *replaceDialog;
+    BrowserDialog *browserDialog;
 	
 	void createActions();
 	void createMenus();
 	void createToolBars();
+    void createStatusBar();
     void updateRecentFiles(const QString &);
 	bool okToContinue();
 	void setCurrentFile(const QString &);
 	bool open(const QString &);
 	bool save(const QString &);
+
+    Highlighter *highlighter;
+
 
 private slots:
 	bool newFile();
@@ -73,6 +90,10 @@ private slots:
     void showFontDialog();
     void showColorDialog();
     bool compileAndRun();
+    void showBrowser(const QString &);
+    void viewHtml();
+    void textCount();
+    void on_codecAction_triggered();
 
 protected:
 	void closeEvent(QCloseEvent *event) override;

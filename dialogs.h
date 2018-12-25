@@ -57,3 +57,18 @@ private slots:
 	void enableFindButton();
 	void enableReplaceButtons();
 };
+
+class BrowserDialog
+        :public QDialog
+{
+    Q_OBJECT
+public:
+    BrowserDialog(QWidget *parent = nullptr);
+
+public slots:
+    void setText(const QString &);
+    void setCurrentFont(const QFont &);
+
+private:
+    QTextBrowser *browser;
+};

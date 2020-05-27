@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/binoculars.png</file>
+        <file>icons/copy.png</file>
+        <file>icons/cut.png</file>
+        <file>icons/dashboard.png</file>
+        <file>icons/file.png</file>
+        <file>icons/folder-open.png</file>
+        <file>icons/font.png</file>
+        <file>icons/paste.png</file>
+        <file>icons/run.png</file>
+        <file>icons/save.png</file>
+        <file>icons/search.png</file>
+        <file>icons/undo.png</file>
+    </qresource>
+</RCC>
